@@ -2,6 +2,7 @@ import type { AppState, LogEntry } from "../types";
 import { initialState } from "./seed";
 
 const STORAGE_KEY = "euromillones-control:v1";
+const LOG_RESET_KEY = "euromillones-control:logs-reset:2026-05-01-vercel-api-fix";
 const IMPORTED_CHECKED_UNTIL = "2026-05-01";
 
 function cloneState(state: AppState): AppState {
@@ -11,22 +12,16 @@ function cloneState(state: AppState): AppState {
 export function loadState(): AppState {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return cloneState(initialState);
+    if (!raw) return resetStoredLogsOnce(cloneState(initialState));
     const parsed = JSON.parse(raw) as AppState;
-    if (parsed.version !== 1) return cloneState(initialState);
-    return normalizeImportedState(parsed);
+    if (parsed.version !== 1) return resetStoredLogsOnce(cloneState(initialState));
+    return resetStoredLogsOnce(normalizeImportedState(parsed));
   } catch {
-    return cloneState(initialState);
+    return resetStoredLogsOnce(cloneState(initialState));
   }
 }
 
 function normalizeImportedState(state: AppState): AppState {
-  const hasImportMigrationLog = state.logs.some(
-    (log) => log.message === "Sorteos importados marcados como revisados.",
-  );
-
-  if (hasImportMigrationLog) return state;
-
   const draws = state.draws.map((draw) => {
     const shouldMarkAsReviewed =
       draw.date <= IMPORTED_CHECKED_UNTIL && draw.played && draw.status === "pending";
@@ -42,14 +37,15 @@ function normalizeImportedState(state: AppState): AppState {
   return {
     ...state,
     draws,
-    logs: [
-      buildLog(
-        "info",
-        "Sorteos importados marcados como revisados.",
-        "Los sorteos jugados hasta el 01/05/2026 se han alineado con el Excel original.",
-      ),
-      ...state.logs,
-    ].slice(0, 250),
+  };
+}
+
+function resetStoredLogsOnce(state: AppState): AppState {
+  if (window.localStorage.getItem(LOG_RESET_KEY)) return state;
+  window.localStorage.setItem(LOG_RESET_KEY, "true");
+  return {
+    ...state,
+    logs: [],
   };
 }
 

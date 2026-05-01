@@ -50,14 +50,5 @@ export const initialState: AppState = {
   ],
   draws: generateDraws("2026-01-27", "2027-01-26"),
   movements: [],
-  logs: [
-    {
-      id: "log-import",
-      at: new Date().toISOString(),
-      level: "info",
-      message: "Datos iniciales cargados desde el Excel de control.",
-      details:
-        "Participantes: Jose, David C, David T. Aportacion total: 360 EUR. Premio importado: 3,94 EUR el 17/03/2026.",
-    },
-  ],
+  logs: [],
 };

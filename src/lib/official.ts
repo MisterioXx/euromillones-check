@@ -1,4 +1,4 @@
-import { OfficialCheckResponse } from "../types";
+import type { OfficialCheckResponse } from "../types";
 
 export async function checkOfficialResults(date?: string): Promise<OfficialCheckResponse> {
   const path = date

@@ -1,4 +1,4 @@
-import { AppState, DrawEntry } from "../types";
+import type { AppState, DrawEntry } from "../types";
 import { parseIsoDate, toIsoDate } from "./dates";
 
 const importedCheckedUntil = "2026-05-01";

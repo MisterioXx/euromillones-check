@@ -1,4 +1,4 @@
-import { AppState, LogEntry } from "../types";
+import type { AppState, LogEntry } from "../types";
 import { initialState } from "./seed";
 
 const STORAGE_KEY = "euromillones-control:v1";

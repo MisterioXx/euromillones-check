@@ -1,4 +1,4 @@
-import { AppState, DrawEntry } from "../types";
+import type { AppState, DrawEntry } from "../types";
 import { isPastOrToday, todayIso } from "./dates";
 
 export function formatCurrency(value: number): string {

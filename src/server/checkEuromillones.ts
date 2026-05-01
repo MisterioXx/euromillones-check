@@ -1,4 +1,4 @@
-import { OfficialCheckResponse } from "../types";
+import type { OfficialCheckResponse } from "../types";
 
 const OFFICIAL_URL = "https://www.loteriasyapuestas.es/es/resultados/euromillones";
 const OFFICIAL_EMBED_URL =

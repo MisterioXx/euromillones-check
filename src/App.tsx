@@ -19,7 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CashMovement, DrawEntry, LogEntry, OfficialCheckResponse } from "./types";
+import type { CashMovement, DrawEntry, LogEntry, OfficialCheckResponse } from "./types";
 import { formatDate, isoWeek, todayIso, weekdayShort } from "./lib/dates";
 import {
   categoryLabel,

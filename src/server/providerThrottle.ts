@@ -20,8 +20,13 @@ function pause(milliseconds: number, signal?: AbortSignal): Promise<void> {
 }
 
 /** Instance-local scheduling: no persistent identifiers or private application data. */
-export function createProviderThrottle(options: { now?: () => number; signal?: AbortSignal } = {}) {
+export function createProviderThrottle(options: {
+  now?: () => number;
+  signal?: AbortSignal;
+  wait?: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
+} = {}) {
   const now = options.now ?? Date.now;
+  const wait = options.wait ?? pause;
   const slots = new Map<string, ProviderSlot>();
   const slotFor = (origin: string) => {
     let slot = slots.get(origin);
@@ -51,7 +56,14 @@ export function createProviderThrottle(options: { now?: () => number; signal?: A
       try {
         await abortable(previous, options.signal);
         checkAvailable(slot);
-        await pause(Math.max(0, slot.lastStarted + intervalMs - now()), options.signal);
+        const nextStart = slot.lastStarted + intervalMs;
+        let remaining = nextStart - now();
+        // Timers may wake early; only the clock reaching the deadline permits a request.
+        while (remaining > 0) {
+          await abortable(wait(remaining, options.signal), options.signal);
+          checkAvailable(slot);
+          remaining = nextStart - now();
+        }
         checkAvailable(slot);
         slot.lastStarted = now();
         return await work();

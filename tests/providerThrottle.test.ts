@@ -2,19 +2,28 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createProviderThrottle } from "../src/server/providerThrottle.js";
 
-test("requests to the same origin are serialised and their starts are spaced", async () => {
-  const throttle = createProviderThrottle();
+test("requests remain serialised and fully spaced even when a timer wakes early", async () => {
+  let clock = 1_000;
+  const waits: number[] = [];
+  const throttle = createProviderThrottle({
+    now: () => clock,
+    wait: async (milliseconds) => {
+      waits.push(milliseconds);
+      clock += milliseconds > 1 ? milliseconds - 1 : milliseconds;
+    },
+  });
   const starts: number[] = [];
   let active = 0;
   const work = async () => {
     assert.equal(active++, 0);
-    starts.push(Date.now());
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    starts.push(clock);
+    await Promise.resolve();
+    clock += 5;
     active--;
   };
   await Promise.all([throttle.run("one", 35, work), throttle.run("one", 35, work), throttle.run("one", 35, work)]);
-  assert.ok(starts[1] - starts[0] >= 34);
-  assert.ok(starts[2] - starts[1] >= 34);
+  assert.deepEqual(starts, [1_000, 1_035, 1_070]);
+  assert.deepEqual(waits, [30, 1, 30, 1]);
 });
 
 test("Retry-After seconds suppress requests until expiry and do not block another origin", async () => {

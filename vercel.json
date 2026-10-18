@@ -2,7 +2,25 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "regions": [
+    "fra1"
+  ],
+  "functions": {
+    "api/**/*.ts": {
+      "maxDuration": 60
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "0 4 * * *"
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/api/auth/(.*)",
+      "destination": "/api/auth?authPath=$1"
+    },
     {
       "source": "/api/(.*)",
       "destination": "/api/$1"

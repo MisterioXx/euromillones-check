@@ -5,7 +5,7 @@ export type Participant = {
   extraContribution: number;
 };
 
-export type DrawStatus = "pending" | "checked" | "manual";
+export type DrawStatus = "pending" | "checked" | "manual" | "awaiting-prize" | "error";
 
 export type DrawEntry = {
   id: string;
@@ -20,6 +20,14 @@ export type DrawEntry = {
   checkedAt?: string;
   winningNumbers?: number[];
   winningStars?: number[];
+  /** Snapshot of the actual bet. Configuration changes must not rewrite history. */
+  betNumbers?: number[];
+  betStars?: number[];
+  prizeSource?: "manual" | "imported" | "automatic";
+  resultSource?: string;
+  resultSummary?: string;
+  lastAttemptAt?: string;
+  checkError?: string;
 };
 
 export type CashMovement = {
@@ -49,7 +57,7 @@ export type AppConfig = {
 };
 
 export type AppState = {
-  version: 1;
+  version: 2;
   config: AppConfig;
   participants: Participant[];
   draws: DrawEntry[];
@@ -74,4 +82,8 @@ export type OfficialCheckResponse = {
   }>;
   message?: string;
   rawSnippet?: string;
+  errorCode?: "invalid_date" | "not_published" | "source_unavailable" | "invalid_source" | "conflicting_sources";
+  sourceName?: string;
+  prizeSource?: string;
+  prizesVerified?: boolean;
 };

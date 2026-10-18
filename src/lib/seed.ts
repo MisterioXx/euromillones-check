@@ -1,20 +1,17 @@
-import type { AppState, DrawEntry } from "../types";
-import { parseIsoDate, toIsoDate } from "./dates";
-
-const importedCheckedUntil = "2026-05-01";
+import type { AppState, DrawEntry } from "../types.js";
+import { parseIsoDate, toIsoDate } from "./dates.js";
 
 function generateDraws(startDate: string, endDate: string): DrawEntry[] {
   const start = parseIsoDate(startDate);
   const end = parseIsoDate(endDate);
   const draws: DrawEntry[] = [];
 
-  for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
-    const day = cursor.getDay();
+  for (const cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    const day = cursor.getUTCDay();
     if (day !== 2 && day !== 5) continue;
 
     const date = toIsoDate(cursor);
     const isKnownPrize = date === "2026-03-17";
-    const wasCheckedInExcel = date <= importedCheckedUntil;
     draws.push({
       id: `draw-${date}`,
       date,
@@ -24,8 +21,10 @@ function generateDraws(startDate: string, endDate: string): DrawEntry[] {
       grossPrize: isKnownPrize ? 3.94 : 0,
       expenses: 0,
       notes: isKnownPrize ? "Premio importado del Excel original." : "",
-      status: wasCheckedInExcel ? "manual" : "pending",
-      checkedAt: wasCheckedInExcel ? new Date("2026-05-01T00:00:00.000Z").toISOString() : undefined,
+      status: isKnownPrize ? "manual" : "pending",
+      prizeSource: isKnownPrize ? "imported" : undefined,
+      betNumbers: [7, 14, 17, 25, 33],
+      betStars: [4, 7],
     });
   }
 
@@ -33,7 +32,7 @@ function generateDraws(startDate: string, endDate: string): DrawEntry[] {
 }
 
 export const initialState: AppState = {
-  version: 1,
+  version: 2,
   config: {
     startDate: "2026-01-27",
     endDate: "2027-01-26",

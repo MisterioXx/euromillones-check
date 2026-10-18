@@ -27,7 +27,7 @@ export default async function handler(request: ApiRequest, response: ServerRespo
     requireSameOrigin(request);
     const body = await bodyJson(request);
     if (request.method === "POST" && (action === "create" || action === "join") && body.expectedUserId !== userId) {
-      throw new HttpError(409, "La cuenta de la sesión ha cambiado. Se conserva tu copia local. Recarga la aplicación antes de crear o unirte a una peña.");
+      throw new HttpError(409, "La cuenta de la sesión ha cambiado. Se conserva tu copia local. Recarga la aplicación antes de crear o abrir una copia compartida.");
     }
     if (request.method === "POST" && action === "create") {
       if (body.confirmMigration !== true) throw new HttpError(400, "Revisa y confirma la copia antes de migrar.");
@@ -41,10 +41,10 @@ export default async function handler(request: ApiRequest, response: ServerRespo
     if (!workspace) throw new HttpError(404, "No hay una copia compartida vinculada a esta cuenta.");
     // A different tab may have changed the session cookie. A matching revision alone
     // must never allow an old tab to write its state into the new account's workspace.
-    if (body.workspaceId !== workspace.id) throw new HttpError(409, "La sesión o la peña ha cambiado. Se conserva tu copia local. Recarga la aplicación y revisa la conexión antes de continuar.");
+    if (body.workspaceId !== workspace.id) throw new HttpError(409, "La sesión o la copia compartida ha cambiado. Se conserva tu copia local. Recarga la aplicación y revisa la conexión antes de continuar.");
     if (request.method === "POST" && action === "invite") return json(response, 201, { token: await createInvite(userId) });
     if (request.method === "POST" && action === "schedule") {
-      if (workspace.owner_id !== userId) throw new HttpError(403, "Solo quien creó la peña puede cambiar la comprobación diaria.");
+      if (workspace.owner_id !== userId) throw new HttpError(403, "Solo quien creó la copia compartida puede cambiar la comprobación diaria.");
       if (typeof body.enabled !== "boolean") throw new HttpError(400, "Indica si quieres activar la comprobación diaria.");
       await getPool().query("UPDATE ec_workspaces SET background_enabled=$2 WHERE id=$1", [workspace.id, body.enabled]);
       return json(response, 200, { enabled: body.enabled });

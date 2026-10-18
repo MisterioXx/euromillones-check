@@ -39,14 +39,14 @@ npm run db:migrate
 
 El script prepara las tablas de Better Auth y `db/schema.sql`. No importa datos de usuario y no forma parte del build. Una futura preparación de producción requiere configurar deliberadamente su propia conexión y ejecutar la migración en el alcance aprobado.
 
-Sin `DATABASE_URL` y `BETTER_AUTH_SECRET`, la aplicación mantiene el modo local y la consulta pública de resultados. Para cron se requieren `DATABASE_URL` y `CRON_SECRET`, además de una peña migrada con automatización activada.
+Sin `DATABASE_URL` y `BETTER_AUTH_SECRET`, la aplicación mantiene el modo local y la consulta pública de resultados. Para cron se requieren `DATABASE_URL` y `CRON_SECRET`, además de una copia compartida migrada con automatización activada.
 
 ## Migración explícita de datos
 
 1. Exportar desde el navegador donde se usa producción. Su JSON contiene los cambios actuales; la semilla del repositorio puede estar desactualizada.
 2. Importar y revisar esa copia en la preview: saldo, participantes, sorteos y movimientos. Se aceptan JSON v1/v2 con validación y conservación de una copia previa.
 3. Crear una cuenta de preview. En Ajustes, revisar el resumen de la copia y confirmar «Crear copia compartida». Esto inicia la persistencia del estado en la base de preview.
-4. Probar acceso desde otra cuenta invitada, exportación, copias y conflictos. Solo compartir códigos con miembros de la peña.
+4. Probar acceso desde otra cuenta invitada, exportación, copias y conflictos. Solo compartir códigos con usuarios autorizados para acceder a esos datos.
 
 El navegador no comparte `localStorage` entre producción y preview. Ni iniciar sesión ni desplegar importa automáticamente los originales. La copia compartida guarda el original de la migración y las 30 versiones anteriores de cambios; el usuario mantiene también su JSON descargado.
 
@@ -54,11 +54,13 @@ El navegador no comparte `localStorage` entre producción y preview. Ni iniciar 
 
 El comprobador busca resultados históricos por fecha en SELAE y valida combinación y cuotas. Durante la verificación de preview, SELAE respondió HTTP 403 desde Vercel aunque fuera accesible desde desarrollo; el diagnóstico distingue las fuentes y sus errores. No se usan proxies ni cambios de región para eludir ese bloqueo.
 
-Como alternativa, se consultan Lotería Angelita y ComprobarEuromillones. Solo se verifican cuotas si ambas publicaciones coinciden en fecha, combinación y tabla completa de 13 categorías, con céntimos exactos. Se guardan las dos URLs y se identifica el contraste sin presentarlo como consulta directa a SELAE. Una fuente caída, incompleta o discrepante no autoriza el abono. Si solo se confirma la combinación, conserva el estado de importe pendiente. RTVE es una alternativa de combinación, sin abono de sus cuotas. Los errores se muestran en Logs, las correcciones manuales se protegen y los premios se concilian sin duplicarlos.
+Como alternativa, se consultan Lotería Angelita y ComprobarEuromillones. Solo se verifican cuotas si ambas publicaciones coinciden en fecha, combinación y tabla completa de 13 categorías, con céntimos exactos. Se guardan las dos URLs y se identifica el contraste sin presentarlo como consulta directa a SELAE. Una fuente caída, incompleta o discrepante no autoriza el abono. Si solo se confirma una combinación premiada, conserva el estado de importe pendiente. RTVE es una alternativa de combinación, sin abono de sus cuotas. Los errores se muestran en Logs, las correcciones manuales se protegen y los premios se concilian sin duplicarlos.
+
+Una sola publicación de ComprobarEuromillones o RTVE puede confirmar la combinación si identifica la fecha exacta y contiene cinco números y dos estrellas válidos y únicos. Esa combinación permite cerrar la comprobación sin premio cuando no hay aciertos premiados. Nunca autoriza un abono nuevo ni retirar un premio ya registrado; los aciertos premiados sin cuota contrastada y las discrepancias con importes previos permanecen en `awaiting-prize`.
 
 También se observó HTTP 429 al consultar varios sorteos seguidos. El comprobador serializa y espacia un segundo las consultas al mismo origen de contraste. Ante 429 respeta `Retry-After` (segundos o fecha HTTP) o espera 60 segundos si no hay plazo válido, omitiendo nuevas consultas a ese origen durante la pausa. No bloquea otras fuentes ni la caché. Esta protección opera por instancia del runtime: varias réplicas pueden compartir un límite externo, por lo que algunos importes pueden necesitar reintento posterior. No reducir estas pausas para eludir límites del proveedor.
 
-Al abrir la aplicación se recuperan los pendientes históricos si está activada la opción correspondiente. La comprobación diaria en segundo plano procesa lotes de 12 sorteos por peña, con reserva temporal, revisión esperada y presupuesto de 45 segundos. No ejecuta SQL de migración.
+Al abrir la aplicación se recuperan los pendientes históricos si está activada la opción correspondiente. La comprobación diaria en segundo plano procesa lotes de 12 sorteos por copia compartida, con reserva temporal, revisión esperada y presupuesto de 45 segundos. No ejecuta SQL de migración.
 
 `vercel.json` programa `GET /api/cron` a las **04:00 UTC** todos los días: 05:00 en invierno y 06:00 en verano en Madrid. Vercel solo programa cron en **producción**; la preview no lo ejecuta automáticamente. En Hobby puede ejecutarse dentro de la hora programada. La prueba manual autenticada de una preview debe limitarse a su base de pruebas. Véase [contrato, contadores y límites](CRON.md) y [documentación oficial](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
 
@@ -66,7 +68,7 @@ Al abrir la aplicación se recuperan los pendientes históricos si está activad
 
 1. Obtener la aprobación del usuario sobre la preview y el alcance de la migración. Conservar una exportación reciente de los datos originales.
 2. Preparar una base de producción separada, sus secretos y el origen canónico. Aplicar la migración SQL en ese entorno deliberadamente.
-3. Ejecutar `npm run check`, desplegar la versión aprobada y verificar acceso, aislamiento de peñas, rutas y resultados por fecha.
+3. Ejecutar `npm run check`, desplegar la versión aprobada y verificar acceso, aislamiento entre espacios compartidos, rutas y resultados por fecha.
 4. El usuario revisa su copia local de producción y confirma la migración compartida. Las cuentas y copias QA de preview no se trasladan.
 5. Confirmar la automatización deseada y verificar una ejecución sobre la copia ya migrada: premio contabilizado una vez, Logs y `last_checked_at`. Mantener las copias previas para recuperación.
 

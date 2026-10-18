@@ -177,16 +177,19 @@ export function publicResultUrls(date: string): [string, string] {
   ];
 }
 
-function publicPrizeTable(table: string, columns: number, amountColumn: number, trailingE = false): Prize[] {
+function publicPrizeTable(table: string, columns: number, amountColumn: number, options: { trailingE?: boolean; wholeEuros?: boolean } = {}): Prize[] {
   const rows: Array<{ category: number; label: string; amount: string }> = [];
   for (const match of table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
     const cells = [...match[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((cell) => plain(cell[1]));
     if (!cells.length) continue;
     if (cells.length !== columns) throw new SourceError("Tabla pública con columnas inesperadas.");
-    const label = trailingE ? cells[0].replace(/e$/i, "") : cells[0];
+    const label = options.trailingE ? cells[0].replace(/e$/i, "") : cells[0];
     const amount = cells[amountColumn];
-    // Require an explicit euro amount with cents, except for a published zero.
-    if (!/^(?:0(?:,00)?|(?:\d+|\d{1,3}(?:\.\d{3})+),\d{2})\s*€$/.test(amount)) throw new SourceError("Cuota pública sin céntimos o moneda verificables.");
+    const exactCents = /^(?:0(?:,00)?|(?:\d+|\d{1,3}(?:\.\d{3})+),\d{2})\s*€$/.test(amount);
+    // Comprobar omits ,00 for whole euros. Angelita must still publish cents and
+    // the full tables must match before either publication can authorise a payout.
+    const wholeEuros = options.wholeEuros && /^(?:\d+|\d{1,3}(?:\.\d{3})+)\s*€$/.test(amount);
+    if (!exactCents && !wholeEuros) throw new SourceError("Cuota pública sin céntimos o moneda verificables.");
     rows.push({ category: Number(label.match(/^\d+/)?.[0]), label, amount });
   }
   if (rows.length !== 13) throw new SourceError("El contraste requiere las 13 categorías completas.");
@@ -196,7 +199,10 @@ function publicPrizeTable(table: string, columns: number, amountColumn: number, 
 export function parseAngelitaHtml(html: string, date: string): ParsedResult {
   const [year, month, day] = date.split("-");
   const heading = plain(html.match(/<h2\b[^>]*>(Resultados del Euromillones del[\s\S]*?)<\/h2>/i)?.[1] ?? "");
-  if (!heading.toLowerCase().endsWith(`${Number(day)} de ${MONTHS[Number(month) - 1]} del ${year}`)) throw new SourceError("La fecha de Lotería Angelita no coincide.");
+  const headingDate = heading.match(/^Resultados del Euromillones del (Martes|Viernes), (\d{1,2}) de ([a-z]+) del (\d{4})$/i);
+  const weekday = new Date(`${date}T12:00:00Z`).getUTCDay() === 2 ? "martes" : "viernes";
+  if (!headingDate || headingDate[1].toLowerCase() !== weekday || Number(headingDate[2]) !== Number(day) ||
+    headingDate[3].toLowerCase() !== MONTHS[Number(month) - 1] || headingDate[4] !== year) throw new SourceError("La fecha de Lotería Angelita no coincide.");
   const section = (name: string) => html.match(new RegExp(`<div class="${name}">([\\s\\S]*?)<\\/div>\\s*<!-- ${name} -->`, "i"))?.[1] ?? "";
   const values = (value: string) => [...value.matchAll(/<span>\s*(\d+)\s*<\/span>/gi)].map((match) => Number(match[1]));
   const result = combination(values(section("wres_numeros")), values(section("wres_estrellas")));
@@ -220,7 +226,7 @@ export function parseComprobarHtml(html: string, date: string): ParsedResult {
   if (!prizeHeading) throw new SourceError("El escrutinio público no acredita su fecha.");
   const table = html.slice(prizeHeading.index! + prizeHeading[0].length).match(/<table\b[^>]*>([\s\S]*?)<\/table>/i)?.[1] ?? "";
   if (!/Categor\..*Acert\..*Premios.*Acert\. Europa/i.test(plain(table))) throw new SourceError("Cabecera de ComprobarEuromillones desconocida.");
-  return { date, ...result, prizes: publicPrizeTable(table, 4, 2, true) };
+  return { date, ...result, prizes: publicPrizeTable(table, 4, 2, { trailingE: true, wholeEuros: true }) };
 }
 
 export function matchingPublicResults(first: ParsedResult, second: ParsedResult): boolean {
@@ -357,6 +363,12 @@ export function createEuromillonesChecker(options: {
         errorCode: "conflicting_sources", message: "Las publicaciones del sorteo discrepan. Se necesita revisión antes de actualizar el saldo." });
     }
     if (partial) return finish(partial);
+    const singlePublication = first ?? second;
+    if (singlePublication) {
+      return finish({ ...singlePublication, prizes: [], prizesVerified: false, prizeSource: undefined,
+        sourceName: first ? "Lotería Angelita" : "ComprobarEuromillones",
+        message: "Combinación publicada por una única fuente. Cualquier premio queda pendiente de contrastar su importe en dos publicaciones." });
+    }
     const fallback = await attempt("RTVE", async () => {
       if (!rtveIndex || rtveIndex.until <= now().getTime()) rtveIndex = { html: await get(RTVE), until: now().getTime() + 300_000 };
       const parsed = parseRtveHtml(rtveIndex.html, date);

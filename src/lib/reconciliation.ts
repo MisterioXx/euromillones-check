@@ -123,6 +123,10 @@ export function applyCheckResult(state: AppState, drawId: string, result: Offici
     return failure("La fuente indica un importe para una combinación sin premio.");
   }
 
+  if (amount === 0 && draw.grossPrize > 0 && draw.prizeSource === "automatic" && result.prizesVerified !== true) {
+    return pendingPrize(`La nueva combinación indica que no hay premio, pero no tiene un escrutinio contrastado. Se conservan los ${draw.grossPrize.toFixed(2)} € registrados hasta verificar la discrepancia.`);
+  }
+
   const protectedPrize = draw.prizeSource === "manual" || draw.prizeSource === "imported" || draw.status === "manual" ||
     (draw.grossPrize > 0 && draw.prizeSource !== "automatic");
   if (protectedPrize && toCents(draw.grossPrize) !== toCents(amount!)) {

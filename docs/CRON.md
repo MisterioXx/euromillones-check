@@ -1,6 +1,6 @@
 # Comprobación diaria compartida
 
-`GET /api/cron` ejecuta comprobaciones de las peñas que han activado `background_enabled` después de migrar sus datos. No lee el almacenamiento local del navegador ni crea peñas automáticamente.
+`GET /api/cron` ejecuta comprobaciones de las copias compartidas que tienen activado `background_enabled` después de migrar sus datos. No lee el almacenamiento local del navegador ni crea copias compartidas automáticamente.
 
 ## Programación y acceso
 
@@ -14,9 +14,11 @@ Solo admite GET. Responde 405 a otros métodos, 401 a credenciales ausentes/inco
 
 Cada ejecución dispone de un presupuesto de 45 segundos. Deja de consultar fuentes a los 30 segundos, limita el guardado al segundo 40 y reserva los últimos 5 segundos para liberar reservas. Las peticiones externas en curso se cancelan al acabar su presupuesto. El límite de plataforma de 60 segundos deja margen para la finalización del runtime.
 
-Se seleccionan como máximo 50 peñas, priorizando las menos recientemente comprobadas. Cada peña obtiene una reserva atómica con un token aleatorio y caducidad de 120 segundos. Otra ejecución no puede adquirir una reserva vigente. La liberación exige el mismo token, por lo que una ejecución antigua no puede liberar la reserva de otra.
+Se seleccionan como máximo 50 copias compartidas, priorizando las menos recientemente comprobadas. Cada copia compartida obtiene una reserva atómica con un token aleatorio y caducidad de 120 segundos. Otra ejecución no puede adquirir una reserva vigente. La liberación exige el mismo token, por lo que una ejecución antigua no puede liberar la reserva de otra.
 
 Cada lote procesa hasta 12 sorteos pendientes con `checkStateBatch`, compartiendo las reglas de conciliación de la interfaz. Un fallo de fuente se registra en Logs y no bloquea los otros sorteos. Los premios sin cuantía fiable siguen pendientes. Se acepta el escrutinio de SELAE o el contraste completo de Lotería Angelita y ComprobarEuromillones, con sus dos enlaces. Los importes confirmados actualizan el sorteo existente, sin crear ingresos duplicados.
+
+Una sola publicación de ComprobarEuromillones o RTVE puede confirmar la combinación si identifica la fecha exacta y contiene cinco números y dos estrellas válidos y únicos. Esa combinación permite cerrar la comprobación sin premio cuando no hay aciertos premiados. Nunca autoriza un abono nuevo ni retirar un premio ya registrado; los aciertos premiados sin cuota contrastada y las discrepancias con importes previos permanecen en `awaiting-prize`.
 
 Las peticiones a cada publicación de contraste se espacian un segundo y se serializan. Un 429 pone ese origen en pausa respetando `Retry-After`, o 60 segundos si no es válido, sin reintento inmediato. Las esperas respetan la cancelación al llegar al presupuesto de consulta. Otras fuentes y resultados en caché siguen disponibles; si no se completa la verificación, el sorteo queda pendiente. La pausa es local a la instancia y no coordina otras réplicas del servicio.
 
@@ -26,13 +28,13 @@ Las peticiones a cada publicación de contraste se espacian un segundo y se seri
 
 Una ejecución completada devuelve exclusivamente contadores:
 
-- `workspacesChecked`: peñas cuya comprobación y metadatos se guardaron.
-- `workspacesUpdated`: peñas con un lote guardado en una nueva revisión.
-- `workspacesSkipped`: peñas cuya reserva no se obtuvo.
-- `workspacesFailed`: peñas con un fallo interno o de almacenamiento.
+- `workspacesChecked`: copias compartidas cuya comprobación y metadatos se guardaron.
+- `workspacesUpdated`: copias compartidas con un lote guardado en una nueva revisión.
+- `workspacesSkipped`: copias compartidas cuya reserva no se obtuvo.
+- `workspacesFailed`: copias compartidas con un fallo interno o de almacenamiento.
 - `conflicts`: guardados rechazados por revisión o reserva concurrente.
 - `drawsAttempted`, `drawsFailed`: consultas realizadas y fallidas, aunque un conflicto posterior impida guardarlas.
-- `drawsRemaining`: pendientes de las peñas procesadas; no es un recuento global de toda la base.
+- `drawsRemaining`: pendientes de las copias compartidas procesadas; no es un recuento global de toda la base.
 - `deadlineReached`: 1 si se agotó un presupuesto, 0 en caso contrario.
 
 Los fallos de escritura no se pueden añadir a Logs cuando la base no está disponible; el runtime registra un aviso genérico sin información privada. Las reservas pendientes caducan por sí solas. No se ejecutan migraciones SQL ni se despliega producción desde esta ruta.

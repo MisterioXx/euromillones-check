@@ -39,7 +39,7 @@ export async function createWorkspace(userId: string, input: unknown, enabled: b
     const id = randomUUID();
     const result = await client.query<WorkspaceRow>(
       "INSERT INTO ec_workspaces(id,name,owner_id,state,background_enabled) VALUES($1,$2,$3,$4,$5) RETURNING *",
-      [id, "Peña Euromillones", userId, JSON.stringify(state), enabled],
+      [id, "EuroControl", userId, JSON.stringify(state), enabled],
     );
     await client.query("INSERT INTO ec_members(workspace_id,user_id) VALUES($1,$2)", [id, userId]);
     // Keep the submitted, validated original as well as the normalized working copy.
@@ -123,13 +123,13 @@ export async function readWorkspaceBackup(userId: string, id: unknown): Promise<
   const row = (await getPool().query<BackupRow>(
     "SELECT s.* FROM ec_snapshots s JOIN ec_members m ON m.workspace_id=s.workspace_id WHERE s.id=$1 AND m.user_id=$2", [id, userId],
   )).rows[0];
-  if (!row) throw new HttpError(404, "La copia no existe o no pertenece a tu peña.");
+  if (!row) throw new HttpError(404, "La copia no existe o no pertenece a tu copia compartida.");
   return { state: validatedCopy(row.state), backup: backupMetadata(row) };
 }
 
 export async function createInvite(userId: string): Promise<string> {
   const workspace = await findWorkspace(userId);
-  if (!workspace || workspace.owner_id !== userId) throw new HttpError(403, "Solo quien creó la peña puede generar invitaciones.");
+  if (!workspace || workspace.owner_id !== userId) throw new HttpError(403, "Solo quien creó la copia compartida puede generar invitaciones.");
   const token = randomBytes(24).toString("base64url");
   const hash = createHash("sha256").update(token).digest("hex");
   await getPool().query("INSERT INTO ec_invites(token_hash,workspace_id,expires_at) VALUES($1,$2,now()+interval '7 days')", [hash, workspace.id]);
@@ -142,7 +142,7 @@ export async function joinWorkspace(userId: string, token: unknown): Promise<Wor
     const account = await client.query('SELECT id FROM "user" WHERE id=$1 FOR UPDATE', [userId]);
     if (!account.rowCount) throw new HttpError(401, "La cuenta ya no está disponible. Inicia sesión de nuevo.");
     const existing = await client.query("SELECT 1 FROM ec_members WHERE user_id=$1", [userId]);
-    if (existing.rowCount) throw new HttpError(409, "Esta cuenta ya pertenece a una peña. No se sustituirán sus datos.");
+    if (existing.rowCount) throw new HttpError(409, "Esta cuenta ya tiene una copia compartida. No se sustituirán sus datos.");
     const hash = createHash("sha256").update(token).digest("hex");
     const invite = (await client.query<{workspace_id: string}>("SELECT workspace_id FROM ec_invites WHERE token_hash=$1 AND expires_at>now() AND used_at IS NULL FOR UPDATE", [hash])).rows[0];
     if (!invite) throw new HttpError(400, "La invitación ha caducado o ya se ha utilizado.");

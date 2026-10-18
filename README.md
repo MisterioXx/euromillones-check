@@ -1,6 +1,6 @@
 # EuroControl · Euromillones
 
-Aplicación para gestionar una peña: aportaciones, gasto por sorteo, premios, ajustes de caja y comprobaciones. Interfaz adaptable a móvil y escritorio, con Resumen, Sorteos, Caja, Ajustes y Logs.
+EuroControl gestiona aportaciones, sorteos, premios y caja, con saldo actual, previsión y comprobaciones de resultados. Interfaz adaptable a móvil y escritorio, con Resumen, Sorteos, Caja, Ajustes y Logs.
 
 Esta revisión se prepara para revisión en **preview**. Publicarla en producción requiere aprobación posterior. La aplicación existente es [euromillones-check.vercel.app](https://euromillones-check.vercel.app/); esa dirección no confirma que incluya los cambios de esta rama.
 
@@ -8,7 +8,7 @@ Esta revisión se prepara para revisión en **preview**. Publicarla en producci�
 
 - React, Vite y TypeScript, servidos como SPA en Vercel.
 - Modo local en `localStorage`, con exportación JSON y recuperación de copias.
-- Copia compartida opcional en PostgreSQL/Neon, acceso mediante Better Auth y pertenencia privada a una peña. Se activa mediante una migración explícita de la copia revisada por el usuario.
+- Copia compartida opcional en PostgreSQL/Neon, acceso mediante Better Auth y autorización por espacio compartido. Se activa mediante una migración explícita de la copia revisada por el usuario.
 - Funciones de Vercel para resultados públicos, acceso, sincronización y comprobación diaria. El comprobador y las reglas de conciliación son los mismos en desarrollo, navegador y cron.
 - Guardados compartidos con revisión, rechazo de conflictos y copias anteriores: original de migración y 30 versiones anteriores de cambios.
 
@@ -32,7 +32,7 @@ El modo local funciona sin base de datos. Para probar la conexión compartida, c
 npm run db:migrate
 ```
 
-Este comando lee `.env.local`, crea/actualiza tablas de acceso y peñas y **no importa datos de usuarios**. No se ejecuta durante el build. Véase [configuración y publicación](docs/VERCEL.md).
+Este comando lee `.env.local`, crea/actualiza tablas de acceso y espacios compartidos y **no importa datos de usuarios**. No se ejecuta durante el build. Véase [configuración y publicación](docs/VERCEL.md).
 
 ## Probar tus datos sin sustituir los originales
 
@@ -49,7 +49,9 @@ Se admiten copias JSON de las versiones 1 y 2. La versión 1 se valida y migra a
 
 La API busca cada fecha en el servicio estructurado de SELAE, con páginas históricas oficiales como alternativa. Si SELAE falla, contrasta Lotería Angelita y ComprobarEuromillones: solo acepta cuotas cuando ambas publicaciones coinciden en fecha, combinación y tabla completa de 13 categorías. Las dos fuentes quedan identificadas; este contraste no se presenta como una consulta directa a SELAE. RTVE puede aportar la combinación, pero **sus importes no se abonan automáticamente**: se han observado cuotas sin céntimos en el widget y errores en noticias.
 
-Se valida la fecha exacta, cinco números únicos entre 1 y 50, dos estrellas únicas entre 1 y 12 y la cuota de la categoría correspondiente. Si falta una cuota fiable contrastada, el sorteo permanece «Importe pendiente». Una diferencia de un céntimo entre las publicaciones bloquea el abono. Un fallo queda en Logs y permite continuar con los demás sorteos. Las consultas tienen tiempo límite y reintento acotado.
+Se valida la fecha exacta, cinco números únicos entre 1 y 50, dos estrellas únicas entre 1 y 12 y la cuota de la categoría correspondiente. Si la combinación tiene premio y falta una cuota fiable contrastada, el sorteo permanece «Importe pendiente». Una diferencia de un céntimo entre las publicaciones bloquea el abono. Un fallo queda en Logs y permite continuar con los demás sorteos. Las consultas tienen tiempo límite y reintento acotado.
+
+Una sola publicación de ComprobarEuromillones o RTVE puede confirmar la combinación si identifica la fecha exacta y contiene cinco números y dos estrellas válidos y únicos. Esa combinación permite cerrar la comprobación sin premio cuando no hay aciertos premiados. Nunca autoriza un abono nuevo ni retirar un premio ya registrado; los aciertos premiados sin cuota contrastada y las discrepancias con importes previos permanecen en `awaiting-prize`.
 
 Las consultas a cada publicación de contraste se espacian al menos un segundo dentro de la instancia del comprobador. Un HTTP 429 activa una pausa conforme a `Retry-After`, o de 60 segundos si no indica un plazo válido; no se reintenta inmediatamente esa fuente. Mientras tanto pueden usarse resultados ya verificados en caché y otras fuentes. Si no se completa el contraste, el importe sigue pendiente para una consulta posterior.
 
@@ -57,7 +59,7 @@ Los premios se actualizan sobre el sorteo existente, sin ingresos duplicados. Lo
 
 Al abrir la aplicación se comprueban los pendientes, incluido el histórico, si la opción está activada. También hay actualización manual, consulta individual y progreso. Con la app abierta se reevalúa la comprobación cada 15 minutos y al recuperar conexión/visibilidad.
 
-La comprobación con la app cerrada exige copia compartida y activación del propietario. El cron está configurado diariamente a las **04:00 UTC**, procesa hasta 12 sorteos por peña y continúa en ejecuciones siguientes. Vercel solo lo programa en producción; la preview permite probarlo de forma autenticada, pero no recibe ejecuciones programadas. Véase [contrato del cron](docs/CRON.md).
+La comprobación con la app cerrada exige copia compartida y activación del propietario. El cron está configurado diariamente a las **04:00 UTC**, procesa hasta 12 sorteos por copia compartida y continúa en ejecuciones siguientes. Vercel solo lo programa en producción; la preview permite probarlo de forma autenticada, pero no recibe ejecuciones programadas. Véase [contrato del cron](docs/CRON.md).
 
 ## Limitaciones conocidas
 

@@ -49,7 +49,7 @@ test("a tab from another account cannot overwrite the active workspace even when
   const before = JSON.stringify(current);
   const result = await request({ state: initialState, workspaceId: "workspace-a", revision: 1 });
   assert.equal(result.status, 409);
-  assert.match(result.data.error, /sesión o la peña ha cambiado/);
+  assert.match(result.data.error, /sesión o la copia compartida ha cambiado/);
   assert.equal(JSON.stringify(current), before);
   assert.equal(queries.length, 1);
 });

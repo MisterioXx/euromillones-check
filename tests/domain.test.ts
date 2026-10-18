@@ -186,6 +186,40 @@ test('a valid losing combination can settle with no verified prize table', () =>
   assert.equal(checked.draws[0].grossPrize, 0);
 });
 
+test('a combination-only losing result cannot remove a previously credited automatic prize', () => {
+  const state = check(fixture());
+  state.draws[0].expenses = 1.25;
+  const before = JSON.stringify(state);
+  for (const prizesVerified of [false, undefined]) {
+    const result = response({ numbers: [1, 2, 3, 4, 5], prizes: [], prizesVerified, fetchedAt: '2026-10-18T11:00:00.000Z' });
+    const checked = check(state, result);
+    assert.equal(checked.draws[0].status, 'awaiting-prize');
+    assert.equal(checked.draws[0].grossPrize, 3.67);
+    assert.equal(checked.draws[0].expenses, 1.25);
+    assert.equal(checked.draws[0].prizeSource, 'automatic');
+    assert.equal(checked.draws[0].notes, state.draws[0].notes);
+    assert.match(checked.draws[0].checkError!, /no tiene un escrutinio contrastado/);
+    assert.equal(checked.logs[0].level, 'warning');
+    assert.equal(totals(checked, '2026-10-18').balanceToDate, totals(state, '2026-10-18').balanceToDate);
+    assert.equal(getPendingDraws(checked, new Date('2026-10-18T12:00:00Z')).length, 1);
+    assert.deepEqual(check(checked, result), checked);
+  }
+  assert.equal(JSON.stringify(state), before);
+});
+
+test('a contrasted later result can resolve a combination-only discrepancy without duplicating money', () => {
+  const state = check(fixture());
+  const awaiting = check(state, response({ numbers: [1, 2, 3, 4, 5], prizes: [], prizesVerified: false }));
+  const confirmedPrize = check(awaiting, response({ fetchedAt: '2026-10-18T12:00:00.000Z' }));
+  assert.equal(confirmedPrize.draws[0].status, 'checked');
+  assert.equal(confirmedPrize.draws[0].grossPrize, 3.67);
+  assert.equal(confirmedPrize.draws[0].checkError, undefined);
+  const confirmedNoPrize = check(awaiting, response({ numbers: [1, 2, 3, 4, 5], fetchedAt: '2026-10-18T12:00:00.000Z' }));
+  assert.equal(confirmedNoPrize.draws[0].status, 'checked');
+  assert.equal(confirmedNoPrize.draws[0].grossPrize, 0);
+  assert.equal(confirmedNoPrize.draws[0].checkError, undefined);
+});
+
 test('error responses retain an existing award and can recover on a later verified result', () => {
   const state = check(fixture());
   const failed = check(state, response({ ok: false, message: 'Fuente temporalmente no disponible' }));

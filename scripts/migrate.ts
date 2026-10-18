@@ -9,5 +9,5 @@ try {
   await migration.runMigrations();
   const schema = await readFile(new URL("../db/schema.sql", import.meta.url), "utf8");
   await transaction(async (client) => { await client.query(schema); });
-  console.log("Esquema de acceso y peñas preparado. No se han importado datos de usuarios.");
+  console.log("Esquema de acceso y copias compartidas preparado. No se han importado datos de usuarios.");
 } finally { await getPool().end(); }

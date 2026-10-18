@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createEuromillonesChecker as newChecker, parseAngelitaHtml, parseComprobarHtml, matchingPublicResults, parseRtveArticle, parseRtveHtml, parseSelaeArticle, parseSelaePayload, validCombination, validDrawDate } from "../src/server/checkEuromillones.ts";
 import handler from "../api/check-euromillones.ts";
+import { initialState } from "../src/lib/seed.js";
+import { applyCheckResult } from "../src/lib/reconciliation.js";
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
 const historical = fixture("selae-2026-05-05.json");
@@ -231,6 +233,7 @@ test("public parsers reject a different date, malformed combination and incomple
   const first = fixture(`angelita-${date}.html`);
   const second = fixture(`comprobar-${date}.html`);
   assert.throws(() => parseAngelitaHtml(first, "2026-10-13"), /fecha/);
+  assert.throws(() => parseAngelitaHtml(first, "2026-10-06"), /fecha/);
   assert.throws(() => parseComprobarHtml(second, "2026-10-13"), /fecha/);
   assert.throws(() => parseAngelitaHtml(first.replace("<span>07</span>", "<span>99</span>"), date), /combinación/);
   assert.throws(() => parseComprobarHtml(second.replace('melate">07', 'melate">15'), date), /combinación/);
@@ -255,6 +258,79 @@ test("the complete corroborated table is verified and identifies both sources", 
   assert.match(result.source, /loteriaangelita\.com/);
   assert.match(result.prizeSource!, /comprobareuromillones\.com/);
   assert.match(result.sourceName!, /Lotería Angelita \+ ComprobarEuromillones/);
+});
+
+test("whole-euro payouts match Angelita's explicit cents for all eleven affected dates with SELAE unavailable", async () => {
+  const cases = [
+    ["2026-03-10", 1, 209527211, 3.77], ["2026-04-17", 7, 56, 4.23],
+    ["2026-04-21", 1, 48175066, 4.25], ["2026-05-26", 5, 145, 3.95],
+    ["2026-06-09", 1, 174984088, 3.99], ["2026-07-03", 1, 80220498, 3.73],
+    ["2026-08-07", 1, 111058174, 4.33], ["2026-08-11", 4, 1491, 3.91],
+    ["2026-09-11", 4, 1485, 3.96], ["2026-09-25", 1, 130000000, 3.8],
+    ["2026-10-02", 1, 28871634, 3.45],
+  ] as const;
+  for (const [date, category, amount, lastAmount] of cases) {
+    const result = await publicChecker(fixture(`angelita-${date}.html`), fixture(`comprobar-${date}.html`))(date);
+    assert.equal(result.ok, true, date);
+    assert.equal(result.prizesVerified, true, date);
+    assert.equal(result.prizes?.find((row) => row.category === `${category}a categoria`)?.amount, amount, date);
+    assert.equal(result.prizes?.at(-1)?.amount, lastAmount, date);
+    assert.match(result.rawSnippet!, /SELAE JSON: HTTP 403/, date);
+  }
+  assert.equal(parseComprobarHtml(fixture("comprobar-2026-02-06.html"), "2026-02-06").prizes.find((row) => row.category === "8a categoria")?.amount, 14);
+});
+
+test("whole-euro support never accepts ambiguous money or turns truncated cents into a verified payout", async () => {
+  const date = "2026-10-16";
+  const first = fixture(`angelita-${date}.html`);
+  const second = fixture(`comprobar-${date}.html`);
+  for (const invalid of ["1.23 €", "1,234 €", "3", "3 USD", "1e3 €", "3 € aproximadamente"]) {
+    assert.throws(() => parseComprobarHtml(second.replace("3,67 €", invalid), date), /céntimos/, invalid);
+  }
+  assert.throws(() => parseAngelitaHtml(first.replace("3,67 €", "3 €"), date), /céntimos/);
+  const truncated = await publicChecker(first, second.replace("3,67 €", "3 €"))(date);
+  assert.equal(truncated.ok, false);
+  assert.equal(truncated.errorCode, "conflicting_sources");
+  assert.equal(truncated.prizesVerified, undefined);
+});
+
+test("a real gap in Angelita's archive only returns the other publication's dated combination", async () => {
+  for (const date of ["2026-01-30", "2026-02-06", "2026-02-13"]) {
+    const first = fixture(`angelita-${date}.html`);
+    const second = fixture(`comprobar-${date}.html`);
+    assert.throws(() => parseAngelitaHtml(first, date), /fecha/);
+    const result = await publicChecker(first, second)(date);
+    assert.equal(result.ok, true, date);
+    assert.equal(result.date, date);
+    assert.equal(result.sourceName, "ComprobarEuromillones");
+    assert.match(result.source, /comprobareuromillones\.com/);
+    assert.deepEqual(result.prizes, []);
+    assert.equal(result.prizesVerified, false);
+    assert.equal(result.prizeSource, undefined);
+    assert.match(result.message!, /única fuente/);
+    const state = structuredClone(initialState);
+    state.draws = state.draws.filter((draw) => draw.date === date);
+    assert.equal(state.draws.length, 1);
+    const draw = state.draws[0];
+    const losing = applyCheckResult(state, draw.id, result);
+    assert.equal(losing.draws[0].status, "checked", date);
+    assert.equal(losing.draws[0].grossPrize, 0, date);
+    draw.betNumbers = result.numbers;
+    draw.betStars = result.stars;
+    const winning = applyCheckResult(state, draw.id, result);
+    assert.equal(winning.draws[0].status, "awaiting-prize", date);
+    assert.equal(winning.draws[0].grossPrize, 0, date);
+  }
+});
+
+test("a lone publication with the wrong date or invalid combination cannot provide a partial result", async () => {
+  const date = "2026-02-06";
+  const second = fixture(`comprobar-${date}.html`);
+  for (const invalid of [second.replace("06/02/2026", "13/02/2026"), second.replace(/melate">\d+/, 'melate">99')]) {
+    const result = await publicChecker(fixture(`angelita-${date}.html`), invalid)(date);
+    assert.equal(result.ok, false);
+    assert.equal(result.prizesVerified, undefined);
+  }
 });
 
 test("one cent discrepancy anywhere in the table or mismatching combinations blocks payouts", async () => {

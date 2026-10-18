@@ -9,7 +9,7 @@ Esta revisión se prepara para revisión en **preview**. Publicarla en producci�
 - React, Vite y TypeScript, servidos como SPA en Vercel.
 - Modo local en `localStorage`, con exportación JSON y recuperación de copias.
 - Copia compartida opcional en PostgreSQL/Neon, acceso mediante Better Auth y autorización por espacio compartido. Se activa mediante una migración explícita de la copia revisada por el usuario.
-- Funciones de Vercel para resultados públicos, acceso, sincronización y comprobación diaria. El comprobador y las reglas de conciliación son los mismos en desarrollo, navegador y cron.
+- Funciones de Vercel para resultados públicos, acceso, sincronización y comprobación tras los sorteos. El comprobador y las reglas de conciliación son los mismos en desarrollo, navegador y cron.
 - Guardados compartidos con revisión, rechazo de conflictos y copias anteriores: original de migración y 30 versiones anteriores de cambios.
 
 ## Desarrollo y comprobaciones
@@ -59,7 +59,7 @@ Los premios se actualizan sobre el sorteo existente, sin ingresos duplicados. Lo
 
 Al abrir la aplicación se comprueban los pendientes, incluido el histórico, si la opción está activada. También hay actualización manual, consulta individual y progreso. Con la app abierta se reevalúa la comprobación cada 15 minutos y al recuperar conexión/visibilidad.
 
-La comprobación con la app cerrada exige copia compartida y activación del propietario. El cron está configurado diariamente a las **04:00 UTC**, procesa hasta 12 sorteos por copia compartida y continúa en ejecuciones siguientes. Vercel solo lo programa en producción; la preview permite probarlo de forma autenticada, pero no recibe ejecuciones programadas. Véase [contrato del cron](docs/CRON.md).
+La comprobación con la app cerrada exige copia compartida y activación del propietario. El cron está configurado los **miércoles y sábados a las 04:00 UTC**, después de los sorteos del martes y viernes. Procesa hasta 12 sorteos por copia compartida y continúa en ejecuciones siguientes. Vercel solo lo programa en producción; la preview permite probarlo de forma autenticada, pero no recibe ejecuciones programadas. Véase [contrato del cron](docs/CRON.md).
 
 ## Limitaciones conocidas
 

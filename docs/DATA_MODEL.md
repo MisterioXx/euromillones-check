@@ -53,7 +53,7 @@ La comprobación considera vencidos los sorteos anteriores a hoy y los del día 
 6. Los importes manuales o importados no se sobrescriben ante una discrepancia. Se muestra el importe recibido y el ya registrado para que el usuario los revise.
 7. Conserva las notas del usuario, registra la fuente y los fallos y mantiene un único importe por sorteo. Repetir una comprobación no crea un segundo ingreso.
 
-Una sola publicación de ComprobarEuromillones o RTVE puede confirmar la combinación si identifica la fecha exacta y contiene cinco números y dos estrellas válidos y únicos. Esa combinación permite cerrar la comprobación sin premio cuando no hay aciertos premiados. Nunca autoriza un abono nuevo ni retirar un premio ya registrado; los aciertos premiados sin cuota contrastada y las discrepancias con importes previos permanecen en `awaiting-prize`.
+Una sola publicación de Lotería Angelita, ComprobarEuromillones o RTVE puede confirmar la combinación si identifica la fecha exacta y contiene cinco números y dos estrellas válidos y únicos. Esa combinación permite cerrar la comprobación sin premio cuando no hay aciertos premiados. Nunca autoriza un abono nuevo ni retirar un premio ya registrado; los aciertos premiados sin cuota contrastada y las discrepancias con importes previos permanecen en `awaiting-prize`.
 
 `getPendingDraws` selecciona sorteos jugados, vencidos y en estado `pending`, `awaiting-prize` o `error`. Los registros manuales históricos se conservan; su revisión adicional debe solicitarse expresamente.
 

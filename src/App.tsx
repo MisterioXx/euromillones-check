@@ -95,6 +95,11 @@ export function App() {
         }
         done += 1;
         if (mountedRef.current) setProgress({ done, total: queue.length, date: draw.date, errors });
+        if (done < queue.length && !stopRef.current && mountedRef.current) {
+          // Pace the browser's batch even when Vercel routes requests to different instances.
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 2_000));
+          if (stopRef.current || !mountedRef.current) break;
+        }
       }
       if (mountedRef.current) {
         changeState((latest) => ({ ...latest, logs: [buildLog(errors ? "warning" : "info", stopRef.current ? "Comprobación pausada por el usuario." : "Comprobación de sorteos terminada.", `${done} consultados; ${errors} con error. Los importes sin confirmar siguen pendientes.`), ...latest.logs] }));

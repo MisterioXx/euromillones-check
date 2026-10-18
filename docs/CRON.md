@@ -1,10 +1,12 @@
-# Comprobación diaria compartida
+# Comprobación compartida tras cada sorteo
 
 `GET /api/cron` ejecuta comprobaciones de las copias compartidas que tienen activado `background_enabled` después de migrar sus datos. No lee el almacenamiento local del navegador ni crea copias compartidas automáticamente.
 
 ## Programación y acceso
 
-`vercel.json` programa una ejecución diaria a las 04:00 UTC, con funciones en `fra1` y `maxDuration: 60`. En Madrid corresponde a las 05:00 en invierno y las 06:00 en verano. Vercel programa los cron en el despliegue de producción; una preview no activa esta programación. En Hobby la invocación puede producirse durante la hora programada, sin precisión de minuto. [Documentación de Vercel](https://vercel.com/docs/cron-jobs/manage-cron-jobs), [límites de cron](https://vercel.com/docs/cron-jobs/usage-and-pricing).
+`vercel.json` programa una ejecución los miércoles y sábados a las 04:00 UTC (`0 4 * * 3,6`), después de los sorteos de martes y viernes, con funciones en `fra1` y `maxDuration: 60`. Vercel programa los cron en el despliegue de producción; una preview no activa esta programación. En Hobby la invocación puede producirse durante la hora programada, sin precisión de minuto: en Madrid, de 05:00 a 06:00 en invierno y de 06:00 a 07:00 en verano. [Documentación de Vercel](https://vercel.com/docs/cron-jobs/manage-cron-jobs), [límites de cron](https://vercel.com/docs/cron-jobs/usage-and-pricing).
+
+Los sorteos que sigan pendientes se reintentan en la siguiente ejecución programada de miércoles o sábado, o al abrir la aplicación si está activada esa opción. No hay un cron diario adicional para reintentos.
 
 Requiere `DATABASE_URL` y `CRON_SECRET` en el entorno del despliegue. El secreto debe ser aleatorio y tener al menos 16 caracteres; se recomienda generar 32 bytes. Vercel envía `Authorization: Bearer <CRON_SECRET>`. La ruta verifica el valor con `timingSafeEqual` sobre hashes de tamaño fijo. No acepta cookies de usuario como sustituto del secreto.
 

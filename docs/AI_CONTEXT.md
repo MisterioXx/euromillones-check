@@ -50,7 +50,9 @@ Las copias JSON v1 y v2 se aceptan tras validación. La conversión conserva imp
 
 ## Automatización y limitaciones
 
-La comprobación al abrir incluye pendientes históricos y se reevalúa cada 15 minutos con la app visible, al volver a estar en línea o recuperar visibilidad. El cron diario a las 04:00 UTC solo se programa en producción, para copias compartidas con esa opción activada. Una preview no tiene cron programado. Sin conexión compartida, cerrar la aplicación detiene sus comprobaciones.
+La comprobación al abrir incluye pendientes históricos y se reevalúa cada 15 minutos con la app visible, al volver a estar en línea o recuperar visibilidad. El cron se programa los miércoles y sábados a las 04:00 UTC (`0 4 * * 3,6`), después de los sorteos de martes y viernes, solo en producción y para copias compartidas con esa opción activada. En Hobby, la ventana de ejecución en Madrid es de 05:00 a 06:00 en invierno y de 06:00 a 07:00 en verano. Una preview no tiene cron programado. Sin conexión compartida, cerrar la aplicación detiene sus comprobaciones.
+
+Los sorteos que sigan pendientes se reintentan en la siguiente ejecución programada o al abrir la aplicación si está activada esa opción. No hay un cron diario adicional para reintentos.
 
 No se ha implementado restablecimiento de contraseña por correo. Las fuentes de resultados pueden fallar o cambiar su respuesta: mantener límites de tiempo, validación y estados pendientes. Nunca enviar secretos al cliente ni prefijarlos con `VITE_`.
 

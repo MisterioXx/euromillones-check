@@ -9,7 +9,7 @@ export default async function handler(request: ApiRequest, response: ServerRespo
   const params = new URL(request.url ?? "/", "http://localhost").searchParams;
   const action = params.get("action");
   if (request.method === "GET" && action === "status") {
-    return json(response, 200, { configured: cloudConfigured(), scheduler: process.env.VERCEL_ENV === "production" ? "daily" : "preview" });
+    return json(response, 200, { configured: cloudConfigured(), scheduler: process.env.VERCEL_ENV === "production" ? "draw-days" : "preview" });
   }
   if (!cloudConfigured()) return json(response, 503, { error: "La copia compartida aún no está configurada. Tus datos locales se conservan." });
   try {
@@ -44,8 +44,8 @@ export default async function handler(request: ApiRequest, response: ServerRespo
     if (body.workspaceId !== workspace.id) throw new HttpError(409, "La sesión o la copia compartida ha cambiado. Se conserva tu copia local. Recarga la aplicación y revisa la conexión antes de continuar.");
     if (request.method === "POST" && action === "invite") return json(response, 201, { token: await createInvite(userId) });
     if (request.method === "POST" && action === "schedule") {
-      if (workspace.owner_id !== userId) throw new HttpError(403, "Solo quien creó la copia compartida puede cambiar la comprobación diaria.");
-      if (typeof body.enabled !== "boolean") throw new HttpError(400, "Indica si quieres activar la comprobación diaria.");
+      if (workspace.owner_id !== userId) throw new HttpError(403, "Solo quien creó la copia compartida puede cambiar la comprobación programada.");
+      if (typeof body.enabled !== "boolean") throw new HttpError(400, "Indica si quieres activar la comprobación programada.");
       await getPool().query("UPDATE ec_workspaces SET background_enabled=$2 WHERE id=$1", [workspace.id, body.enabled]);
       return json(response, 200, { enabled: body.enabled });
     }

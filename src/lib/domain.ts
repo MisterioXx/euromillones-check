@@ -1,5 +1,5 @@
-import type { AppState, DrawEntry } from "../types";
-import { isPastOrToday, todayIso } from "./dates";
+import type { AppState, DrawEntry } from "../types.js";
+import { isPastOrToday, todayIso } from "./dates.js";
 
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("es-ES", {
@@ -9,42 +9,50 @@ export function formatCurrency(value: number): string {
 }
 
 export function drawCost(draw: DrawEntry): number {
-  return draw.played ? draw.lines * draw.costPerLine : 0;
+  return draw.played ? fromCents(draw.lines * toCents(draw.costPerLine)) : 0;
 }
 
 export function drawNetPrize(draw: DrawEntry): number {
-  return Math.max(0, draw.grossPrize - draw.expenses);
+  return fromCents(Math.max(0, toCents(draw.grossPrize) - toCents(draw.expenses)));
+}
+
+export function toCents(value: number): number {
+  return Math.round(value * 100);
+}
+
+export function fromCents(value: number): number {
+  return value / 100;
 }
 
 export function totals(state: AppState, today = todayIso()) {
   const contributionTotal = state.participants.reduce(
-    (sum, participant) => sum + participant.annualContribution + participant.extraContribution,
+    (sum, participant) => sum + toCents(participant.annualContribution) + toCents(participant.extraContribution),
     0,
   );
   const currentDraws = state.draws.filter((draw) => isPastOrToday(draw.date, today));
-  const spentToDate = currentDraws.reduce((sum, draw) => sum + drawCost(draw), 0);
-  const plannedSpend = state.draws.reduce((sum, draw) => sum + drawCost(draw), 0);
-  const prizesToDate = currentDraws.reduce((sum, draw) => sum + drawNetPrize(draw), 0);
-  const allPrizes = state.draws.reduce((sum, draw) => sum + drawNetPrize(draw), 0);
+  const spentToDate = currentDraws.reduce((sum, draw) => sum + toCents(drawCost(draw)), 0);
+  const plannedSpend = state.draws.reduce((sum, draw) => sum + toCents(drawCost(draw)), 0);
+  const prizesToDate = currentDraws.reduce((sum, draw) => sum + toCents(drawNetPrize(draw)), 0);
+  const allPrizes = state.draws.reduce((sum, draw) => sum + toCents(drawNetPrize(draw)), 0);
   const adjustmentsToDate = state.movements
     .filter((movement) => movement.date <= today)
-    .reduce((sum, movement) => sum + movement.amount, 0);
+    .reduce((sum, movement) => sum + toCents(movement.amount), 0);
   const balanceToDate = contributionTotal + prizesToDate + adjustmentsToDate - spentToDate;
   const projectedBalance =
     contributionTotal +
     allPrizes +
-    state.movements.reduce((sum, movement) => sum + movement.amount, 0) -
+    state.movements.reduce((sum, movement) => sum + toCents(movement.amount), 0) -
     plannedSpend;
 
   return {
-    contributionTotal,
-    spentToDate,
-    plannedSpend,
-    prizesToDate,
-    allPrizes,
-    adjustmentsToDate,
-    balanceToDate,
-    projectedBalance,
+    contributionTotal: fromCents(contributionTotal),
+    spentToDate: fromCents(spentToDate),
+    plannedSpend: fromCents(plannedSpend),
+    prizesToDate: fromCents(prizesToDate),
+    allPrizes: fromCents(allPrizes),
+    adjustmentsToDate: fromCents(adjustmentsToDate),
+    balanceToDate: fromCents(balanceToDate),
+    projectedBalance: fromCents(projectedBalance),
     drawsPlayedToDate: currentDraws.filter((draw) => draw.played).length,
     totalDraws: state.draws.length,
   };

@@ -1,14 +1,21 @@
-import type { OfficialCheckResponse } from "../types";
+import type { OfficialCheckResponse } from "../types.js";
 
 export async function checkOfficialResults(date?: string): Promise<OfficialCheckResponse> {
   const path = date
     ? `/api/check-euromillones?date=${encodeURIComponent(date)}`
     : "/api/check-euromillones";
-  const response = await fetch(path, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-  });
-  const raw = await response.text();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+  let raw: string;
+  try {
+    const response = await fetch(path, {
+      method: "GET", headers: { Accept: "application/json" }, signal: controller.signal,
+    });
+    raw = await response.text();
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("La comprobación ha tardado demasiado. Puedes volver a intentarlo.");
+    throw error;
+  } finally { clearTimeout(timeout); }
 
   let payload: OfficialCheckResponse;
   try {
@@ -19,5 +26,9 @@ export async function checkOfficialResults(date?: string): Promise<OfficialCheck
     );
   }
 
+  if (!payload || typeof payload.ok !== "boolean" || typeof payload.source !== "string" || typeof payload.fetchedAt !== "string") {
+    throw new Error("La API devolvió una respuesta de comprobación incompleta.");
+  }
+  if (payload.ok && date && payload.date !== date) throw new Error("La fuente devolvió un sorteo distinto del solicitado.");
   return payload;
 }
